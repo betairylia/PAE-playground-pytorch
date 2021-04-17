@@ -140,8 +140,8 @@ cython_debug/
 /data
 data/
 out.temp
-model/
 snapshot/
 Results_new/
 *.swp
 wandb/
+
