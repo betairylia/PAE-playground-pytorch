@@ -77,13 +77,15 @@ def main():
     # Worker meta-data
     parser.add_argument('--runid', type=int, default=0, help='Run ID.')
     parser.add_argument('--keyargs', type=str, default="", help='Key variables in HP tune, splitted in commas')
+    parser.add_argument('--wandb', type=int, default=1, help='Use WandB.')
 
     # TODO: Fixed seed ? Randomness ?
 
     args = parser.parse_args()
 
     # Log into WandB
-    wandb.init(project = args.proj, config = vars(args), group = GetArgsStr(args))
+    if args.wandb:
+        wandb.init(project = args.proj, config = vars(args), group = GetArgsStr(args))
 
     ##########################################################################
     ''' Dataset '''
@@ -137,8 +139,8 @@ def main():
     ''' Optimizers '''
     ##########################################################################
 
-    # optimizer = optim.Adam(net.parameters(), lr=args.lr, weight_decay=0.0)
-    # optimizers = [optimizer]
+    optimizer = optim.Adam(net.parameters(), lr=args.lr, weight_decay=0.0)
+    optimizers = [optimizer]
 
     # TODO: LR scheduler
 
@@ -147,14 +149,24 @@ def main():
     ##########################################################################
 
     # TODO: proper loss for particles
+    # loss = LossComposition([
+    #     {
+    #         # Sinkhorn reconstruction loss
+    #         'name': "Sinkhorn",
+    #         'weight': 1.0,
+    #         'loss': SinkhornLoss(
+    #             # TODO: getters
+    #         )
+    #     },
+    # ])
+
+    # Test loss func
     loss = LossComposition([
         {
             # Sinkhorn reconstruction loss
-            'name': "Sinkhorn",
+            'name': "Test",
             'weight': 1.0,
-            'loss': SinkhornLoss(
-                # TODO: getters
-            )
+            'loss': lambda bc : torch.abs(bc.outputs.x.mean() - 0.0)
         },
     ])
 
@@ -182,16 +194,17 @@ def main():
             bc.x = batch
 
             # Regular update
+            # breakpoint()
             bc.outputs = bc.net(bc.x)
 
-            breakpoint()
+            # breakpoint()
             
-            # OptimStep(bc, loss, optimizer)
+            OptimStep(bc, loss, optimizer)
 
-            # if it % args.log_interval == 0:
-            if False:
+            if it % args.log_interval == 0:
 
-                loss.LogToWandB('loss')
+                if args.wandb:
+                    loss.LogToWandB('loss')
                 
                 print("\033[4;36mEp %3d\033[0m | \033[4;32mIt %4d / %4d\033[0m | %s" %
                 (epoch, bit, len(train_loader), loss.GetLogString()))
@@ -204,17 +217,20 @@ def main():
 
         '''TEST / VALIDATION'''
         correct = 0
-        for data, target in ec.test_loader:
+        # for data, target in ec.test_loader:
 
-            data = data.to(device)
-            target = target.to(device)
+            # data = data.to(device)
+            # target = target.to(device)
 
-            feat, pred = net(data)
-            correct += NumEq(pred, target)
+            # pred = net(data)
+            # correct += NumEq(pred, target)
+
+            # pass
 
         acc = correct / len(test_loader.dataset) * 100.0
 
-        wandb.log({"accuracy": acc, "epoch": epoch})
+        if args.wandb:
+            wandb.log({"accuracy": acc, "epoch": epoch})
         print("Epoch %3d - Acc %.2f" % (epoch, acc))
         sys.stdout.flush()
 
