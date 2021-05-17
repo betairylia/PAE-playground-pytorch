@@ -27,6 +27,6 @@ class SinkhornLoss(nn.Module):
         rec = self.right_getter(batchContext)
 
         # Calculation
-        loss = self.loss_func(ref, rec)
+        loss, _, _ = self.loss_func(ref, rec)
 
         return loss

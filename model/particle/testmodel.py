@@ -18,7 +18,7 @@ class TestModel(nn.Module):
         d = 2
         pos_ch = 3
 
-        self.net = nn.Sequential(
+        self.encoder = nn.Sequential(
 
             kNNLayer(k=16),
 
@@ -43,7 +43,17 @@ class TestModel(nn.Module):
             NetFiltersLayer(128, 128, d, pos_ch),
             NetFiltersLayer(128, 128, d, pos_ch),
             NetFiltersLayer(128, 128, d, pos_ch),
-            NetFiltersLayer(128, 16 - pos_ch, d, pos_ch),
+            NetFiltersLayer(128, 16 - pos_ch, d, pos_ch, act = nn.Identity())
+
+        )
+
+        self.decoder = nn.Sequential(
+
+            DecodingInputLayer(ratio = 64, latentC = 16 - pos_ch, featC = 64, outC = 16),
+            FCAdaINLayer(inC = 16, outC = 64, featC = 64),
+            FCAdaINLayer(inC = 64, outC = 64, featC = 64),
+            FCAdaINLayer(inC = 64, outC = 3, featC = 64, act = nn.Identity())
+
         )
 
     def track_bn_stats(self, track):
@@ -53,6 +63,7 @@ class TestModel(nn.Module):
         
     def forward(self, batch):
        
-        batch = self.net(batch)
+        latent_batch = self.encoder(batch)
+        decoded_batch = self.decoder(latent_batch)
 
-        return batch
+        return latent_batch, decoded_batch

@@ -22,6 +22,7 @@ from utils import *
 from loss import *
 
 from torch_geometric.data import DataLoader
+from loss.PyTorchOT import SinkhornDistance
 
 import sys
 import time
@@ -148,27 +149,31 @@ def main():
     ''' Loss Composition '''
     ##########################################################################
 
-    # TODO: proper loss for particles
-    # loss = LossComposition([
-    #     {
-    #         # Sinkhorn reconstruction loss
-    #         'name': "Sinkhorn",
-    #         'weight': 1.0,
-    #         'loss': SinkhornLoss(
-    #             # TODO: getters
-    #         )
-    #     },
-    # ])
+    # point cloud size
+    N = 4096
 
-    # Test loss func
+    # TODO: proper loss for particles
     loss = LossComposition([
         {
             # Sinkhorn reconstruction loss
-            'name': "Test",
+            'name': "Sinkhorn",
             'weight': 1.0,
-            'loss': lambda bc : torch.abs(bc.outputs.x.mean() - 0.0)
+            'loss': SinkhornLoss(
+                left_getter = lambda bc : bc.x.pos.view(-1, 4096),
+                right_getter = lambda bc : bc.decoded.x.view(-1, 4096)
+            )
         },
     ])
+
+    # Test loss func
+    # loss = LossComposition([
+    #     {
+    #         # Sinkhorn reconstruction loss
+    #         'name': "Test",
+    #         'weight': 1.0,
+    #         'loss': lambda bc : torch.abs(bc.latent.x.mean() - 0.0)
+    #     },
+    # ])
 
     ##########################################################################
     ''' Main Loop '''
@@ -195,7 +200,13 @@ def main():
 
             # Regular update
             # breakpoint()
-            bc.outputs = bc.net(bc.x)
+            bc.latent, bc.decoded = bc.net(bc.x)
+
+            # Test
+            # pred = bc.decoded.x[:4096].unsqueeze(0)
+            # true = batch.pos[:4096].unsqueeze(0)
+            # sink = SinkhornDistance(1e-2, 100)
+            # print(sink(pred, true))
 
             # breakpoint()
             

@@ -39,34 +39,37 @@ class SinkhornDistance(nn.Module):
         else:
             batch_size = x.shape[0]
 
-        # both marginals are fixed with equal weights
-        mu = torch.empty(batch_size, x_points, dtype=torch.float,
-                         requires_grad=False).fill_(1.0 / x_points).squeeze()
-        nu = torch.empty(batch_size, y_points, dtype=torch.float,
-                         requires_grad=False).fill_(1.0 / y_points).squeeze()
+        with torch.no_grad():
 
-        u = torch.zeros_like(mu)
-        v = torch.zeros_like(nu)
-        # To check if algorithm terminates because of threshold
-        # or max iterations reached
-        actual_nits = 0
-        # Stopping criterion
-        thresh = 1e-1
+            # both marginals are fixed with equal weights
+            mu = torch.empty(batch_size, x_points, dtype=torch.float,
+                            requires_grad=False, device = x.device).fill_(1.0 / x_points).squeeze()
+            nu = torch.empty(batch_size, y_points, dtype=torch.float,
+                            requires_grad=False, device = x.device).fill_(1.0 / y_points).squeeze()
 
-        # Sinkhorn iterations
-        for i in range(self.max_iter):
-            u1 = u  # useful to check the update
-            u = self.eps * (torch.log(mu+1e-8) - torch.logsumexp(self.M(C, u, v), dim=-1)) + u
-            v = self.eps * (torch.log(nu+1e-8) - torch.logsumexp(self.M(C, u, v).transpose(-2, -1), dim=-1)) + v
-            err = (u - u1).abs().sum(-1).mean()
+            u = torch.zeros_like(mu)
+            v = torch.zeros_like(nu)
+            # To check if algorithm terminates because of threshold
+            # or max iterations reached
+            actual_nits = 0
+            # Stopping criterion
+            thresh = 1e-1
 
-            actual_nits += 1
-            if err.item() < thresh:
-                break
+            # Sinkhorn iterations
+            for i in range(self.max_iter):
+                u1 = u  # useful to check the update
+                u = self.eps * (torch.log(mu+1e-8) - torch.logsumexp(self.M(C, u, v), dim=-1)) + u
+                v = self.eps * (torch.log(nu+1e-8) - torch.logsumexp(self.M(C, u, v).transpose(-2, -1), dim=-1)) + v
+                err = (u - u1).abs().sum(-1).mean()
 
-        U, V = u, v
-        # Transport plan pi = diag(a)*K*diag(b)
-        pi = torch.exp(self.M(C, U, V))
+                actual_nits += 1
+                if err.item() < thresh:
+                    break
+
+            U, V = u, v
+            # Transport plan pi = diag(a)*K*diag(b)
+            pi = torch.exp(self.M(C, U, V))
+        
         # Sinkhorn distance
         cost = torch.sum(pi * C, dim=(-2, -1))
 

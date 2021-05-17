@@ -4,7 +4,7 @@ from torch_geometric.nn import MessagePassing
 
 class NetFiltersLayer(MessagePassing):
 
-    def __init__(self, in_channels, out_channels, proxy_channels=2, position_dims = 3):
+    def __init__(self, in_channels, out_channels, proxy_channels=2, position_dims=3, act=nn.ReLU()):
         
         super(NetFiltersLayer, self).__init__(aggr='mean')
 
@@ -20,12 +20,16 @@ class NetFiltersLayer(MessagePassing):
         self.cin = in_channels
         self.cout = out_channels
         self.cproxy = proxy_channels
+
+        self.act = act
         
     def forward(self, batch):
 
         proxy_features = self.proxy_mlp(batch.x)
 
         batch.x = self.propagate(batch.edge_index, pos = batch.pos, proxy_features = proxy_features)
+
+        batch.x = self.act(batch.x)
 
         return batch
     
